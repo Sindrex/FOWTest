@@ -8,6 +8,7 @@ public class FOWTile : MonoBehaviour
     public int myIndex;
     public int setting;
     public bool recentChange = false;
+    public TextMesh indexText;
 
     private void OnMouseOver()
     {

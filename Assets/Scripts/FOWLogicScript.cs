@@ -35,6 +35,7 @@ public class FOWLogicScript : MonoBehaviour
                 g.transform.position = vec;
                 g.GetComponent<FOWTile>().logic = this;
                 g.GetComponent<FOWTile>().myIndex = index;
+                g.GetComponent<FOWTile>().indexText.text = index + "";
                 index++;
                 vec += new Vector3(1*1f, 0, 0);
                 tiles.Add(g.GetComponent<FOWTile>());
@@ -150,6 +151,8 @@ public class FOWLogicScript : MonoBehaviour
         int startIndex = tiles.IndexOf(startTile);
         List<int> edgeIndexes = new List<int>();
 
+        #region find edge pieces
+        //Find edge pieces
         //top row
         int offset = -playerViewDist;
         for (int i = 0; i < playerViewDist * 2 + 1; i++)
@@ -182,6 +185,7 @@ public class FOWLogicScript : MonoBehaviour
             edgeIndexes.Add(index);
             offset += length;
         }
+        #endregion
 
         //make lines!
         //given x = start index column
@@ -194,29 +198,51 @@ public class FOWLogicScript : MonoBehaviour
             int x1 = makeX(edgeIndex);
             int y1 = makeY(edgeIndex);
 
+            int dx, dy;
+            int stepx = 1, stepy = 1;
+
+            dx = x1 - x0;
+            dy = y1 - y0;
+
+            if(dx < 0)
+            {
+                dx = -dx;
+                stepx = -1;
+            }
+            if(dy < 0)
+            {
+                dy = -dy;
+                stepy = -1;
+            }
+
+            /*
             int x = x0;
-            if (x0 - x1 > 0)
+            for (int i = 0; i < Mathf.Max(Mathf.Abs(x0 - x1), Mathf.Abs(y0-y1)); i++)
             {
-                x--;
-            }
-            else
-            {
-                x++;
-            }
+                if (x0 - x1 > 0)
+                {
+                    x--;
+                }
+                else
+                {
+                    x++;
+                }
 
-            int y = 0;
+                int y = 0;
+                if (x1 - x0 == 0)
+                {
+                    y = y0;
+                }
+                else
+                {
+                    y = (y1 - y0) / (x1 - x0) * (x - x0) + y0;
+                }
 
-            if (x1 - x0 == 0)
-            {
-                y = y0;
-            }
-            else
-            {
-                y = (y1 - y0) / (x1 - x0) * (x - x0) + y0;
-            }
-            int newIndex = makeIndex(x, y);
-            print("EdgeIndex: " + edgeIndex + ", new index: " + newIndex);
-            setWhite(tiles[newIndex]);
+
+                int newIndex = makeIndex(x, y);
+                print("EdgeIndex: " + edgeIndex + ", new index: " + newIndex);
+                setWhite(tiles[newIndex]);
+            }*/
         }
     }
 
