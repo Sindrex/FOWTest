@@ -58,6 +58,7 @@ public class FOWLogicScript : MonoBehaviour
                 players.Add(tile);
             }
         }
+        print("Players: " + players.Count);
         foreach (FOWTile tile in players)
         {
             //int index = tiles.IndexOf(tile);
@@ -75,6 +76,15 @@ public class FOWLogicScript : MonoBehaviour
     {
         tile.GetComponent<MeshRenderer>().material = white;
         tile.setting = 0;
+    }
+
+    void setWhite(int index)
+    {
+        if(index < tiles.Count - 1)
+        {
+            tiles[index].GetComponent<MeshRenderer>().material = white;
+            tiles[index].setting = 0;
+        }
     }
 
     void raycast(GameObject startTile){
@@ -148,6 +158,7 @@ public class FOWLogicScript : MonoBehaviour
         //1. get edge tiles/indexes and start index (gotta know start and stop for bresenham)
         //2. brasenham line between start and edge pieces, stop if wall
 
+        print(">>>Starting Bresenham!");
         int startIndex = tiles.IndexOf(startTile);
         List<int> edgeIndexes = new List<int>();
 
@@ -191,6 +202,7 @@ public class FOWLogicScript : MonoBehaviour
         //given x = start index column
         int x0 = makeX(startIndex);
         int y0 = makeY(startIndex);
+        print("StartIndex: " + startIndex + " -> x/y:" + x0 + "/" + y0);
 
         foreach (int edgeIndex in edgeIndexes)
         {
@@ -198,51 +210,42 @@ public class FOWLogicScript : MonoBehaviour
             int x1 = makeX(edgeIndex);
             int y1 = makeY(edgeIndex);
 
-            int dx, dy;
-            int stepx = 1, stepy = 1;
+            print("EdgeIndex: " + edgeIndex + " -> x/y:" + x1 + "/" + y1);
 
-            dx = x1 - x0;
-            dy = y1 - y0;
+            //Looked up something called DDA, but didnt end up using.
+            float steps = 0;
 
-            if(dx < 0)
-            {
-                dx = -dx;
-                stepx = -1;
-            }
-            if(dy < 0)
-            {
-                dy = -dy;
-                stepy = -1;
-            }
+            int dx = x1 - x0;
+            int dy = y1 - y0;
 
-            /*
             int x = x0;
-            for (int i = 0; i < Mathf.Max(Mathf.Abs(x0 - x1), Mathf.Abs(y0-y1)); i++)
+            int y = y0;
+
+            int p = 2 * dy - dx;
+
+            //rip
+            for(int i = 0; i < Mathf.Abs(dx); i++)
             {
-                if (x0 - x1 > 0)
+                if(p >= 0)
                 {
-                    x--;
+                    int newIndex = makeIndex(x, y);
+                    print("EdgeIndex: " + edgeIndex + ", new index: " + newIndex);
+                    setWhite(newIndex);
+
+                    y = y + 1;
+                    p = p + 2 * dy - 2 * dx;
                 }
                 else
                 {
-                    x++;
-                }
+                    int newIndex = makeIndex(x, y);
+                    print("EdgeIndex: " + edgeIndex + ", new index: " + newIndex);
+                    setWhite(newIndex);
 
-                int y = 0;
-                if (x1 - x0 == 0)
-                {
-                    y = y0;
+                    p = p + 2 * dy;
+                    x = x + 1;
                 }
-                else
-                {
-                    y = (y1 - y0) / (x1 - x0) * (x - x0) + y0;
-                }
+            }
 
-
-                int newIndex = makeIndex(x, y);
-                print("EdgeIndex: " + edgeIndex + ", new index: " + newIndex);
-                setWhite(tiles[newIndex]);
-            }*/
         }
     }
 
