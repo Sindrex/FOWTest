@@ -603,8 +603,8 @@ MonoBehaviour:
   black: {fileID: 2100000, guid: 9d0d1546356d9c94a95a782c27237f00, type: 2}
   tilePrefab: {fileID: 201168816092224731, guid: 227c4875fecd9fb4a8e2edcb3dd7e61a,
     type: 3}
-  length: 7
-  playerViewDist: 3
+  length: 20
+  playerViewDist: 5
   tiles:
   - {fileID: 0}
   - {fileID: 0}
