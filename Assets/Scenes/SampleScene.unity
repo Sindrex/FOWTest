@@ -604,7 +604,7 @@ MonoBehaviour:
   tilePrefab: {fileID: 201168816092224731, guid: 227c4875fecd9fb4a8e2edcb3dd7e61a,
     type: 3}
   length: 20
-  playerViewDist: 3
+  playerViewDist: 4
   tiles:
   - {fileID: 0}
   - {fileID: 0}
@@ -672,9 +672,10 @@ MonoBehaviour:
   - {fileID: 0}
   raycastMe: 0
   raydivisor: 12
-  DDA: 0
+  DDA: 1
   DDAMine: 0
-  maxSeeThrough: 3
+  maxSeeThrough: 4
+  circleTol: 0
 --- !u!1 &1164653930
 GameObject:
   m_ObjectHideFlags: 0

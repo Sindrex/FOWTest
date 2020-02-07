@@ -31,6 +31,7 @@ public class FOWLogicScript : MonoBehaviour
     public bool DDA;
     public bool DDAMine;
     public int maxSeeThrough;
+    public float circleTol = 0.25f;
 
 
     // Start is called before the first frame update
@@ -59,7 +60,7 @@ public class FOWLogicScript : MonoBehaviour
 
     private void FixedUpdate()
     {
-        updateLOSMap();
+        //updateLOSMap();
     }
 
     public void updateLOSMap()
@@ -96,8 +97,10 @@ public class FOWLogicScript : MonoBehaviour
             {
                 DDAAlgorithmMine(tile);
             }
-
-            getEdgeIndexesCircle(tile.myIndex);
+            else
+            {
+                getEdgeIndexesCircle(tile.myIndex);
+            }
 
             //int index = tile.myIndex;
             //int curIndex = index;
@@ -220,7 +223,7 @@ public class FOWLogicScript : MonoBehaviour
         int y0 = makeY(startIndex);
 
         //for all the edge tiles, threaded/multicore
-        Parallel.ForEach(edgeIndexes, edgeIndex =>
+        foreach(int edgeIndex in edgeIndexes)
         {
            int x1 = makeX(edgeIndex); //convert index to x-y coords
             int y1 = makeY(edgeIndex);
@@ -328,7 +331,7 @@ public class FOWLogicScript : MonoBehaviour
                    }
                }
            }
-        });
+        }
     }
     
     //Help method for DDAAlgorithm
@@ -356,8 +359,10 @@ public class FOWLogicScript : MonoBehaviour
         int x0 = makeX(startIndex);
         int y0 = makeY(startIndex);
 
+        List<int> viewIndexes = new List<int>();
+
         //for all the edge tiles
-        Parallel.ForEach(edgeIndexes, edgeIndex =>
+        foreach(int edgeIndex in edgeIndexes)
         {
             int x1 = makeX(edgeIndex); //convert index to x-y coords
             int y1 = makeY(edgeIndex);
@@ -405,7 +410,7 @@ public class FOWLogicScript : MonoBehaviour
                     {
                         seenThroughCount++;
                     }
-                    setWhite(newIndex);
+                    viewIndexes.Add(newIndex);
                 }
             }
             else
@@ -445,7 +450,7 @@ public class FOWLogicScript : MonoBehaviour
                         {
                             seenThroughCount++;
                         }
-                        setWhite(newIndex);
+                        viewIndexes.Add(newIndex);
                     }
                 }
                 else //a<1, slow slope
@@ -482,11 +487,17 @@ public class FOWLogicScript : MonoBehaviour
                         {
                             seenThroughCount++;
                         }
-                        setWhite(newIndex);
+                        viewIndexes.Add(newIndex);
                     }
                 }
             }
-        });
+        }
+
+        //Set them white
+        foreach(int i in viewIndexes)
+        {
+            setWhite(i);
+        }
     }
 
     //Help method for DDAAlgorithmMine
@@ -553,6 +564,7 @@ public class FOWLogicScript : MonoBehaviour
     {
         //get the edge indexes of square
         List<int> edgeIndexes = getEdgeIndexesSquare(startIndex);
+        List<int> newEdgeIndexes = new List<int>();
 
         int x0 = makeX(startIndex);
         int y0 = makeY(startIndex);
@@ -596,19 +608,22 @@ public class FOWLogicScript : MonoBehaviour
                 dy = ny - y0;
             }
             int index = makeIndex(nx, ny);
-            setWhite(index);
+            newEdgeIndexes.Add(index);
         }
 
-        return edgeIndexes;
+        return newEdgeIndexes;
     }
 
     bool checkInsideCircleView(int dx, int dy)
     {
+        float tol = (playerViewDist - 3)*0.25f;
+
         float sqdist = Mathf.Pow(dx, 2) + Mathf.Pow(dy, 2);
-        //print("Checking " + edgeIndex + ": " + sqdist);
-        if (sqdist <= Mathf.Pow(playerViewDist, 2))
+        print(">>>Checking " + dx + "/" + dy + ": " + sqdist);
+        float maxDist = Mathf.Pow(playerViewDist + tol, 2);
+        if (sqdist <= maxDist)
         {
-            //print("Edge: " + edgeIndex + " is inside circle!");
+            print("Edge: " + dx + "/" + dy + " (" + sqdist + ")" + " is inside rad " + maxDist + " circle!");
             return true;
         }
         return false;
