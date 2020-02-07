@@ -43,7 +43,7 @@ public class FOWTile : MonoBehaviour
                     break;
             }
 
-            logic.updateLOSMap();
+            //logic.updateLOSMap();
         }
     }
 }

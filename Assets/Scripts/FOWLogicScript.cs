@@ -1,6 +1,16 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
+
+public enum TileSetting
+{
+    white = 0,
+    green = 1,
+    blue = 2,
+    black = 3,
+    red = 4
+}
 
 public class FOWLogicScript : MonoBehaviour
 {
@@ -15,8 +25,12 @@ public class FOWLogicScript : MonoBehaviour
     public int playerViewDist;
     public List<FOWTile> tiles;
 
-    //raycasting
+    public bool raycastMe;
     public int raydivisor = 12;
+
+    public bool DDA;
+    public bool DDAMine;
+    public int maxSeeThrough;
 
 
     // Start is called before the first frame update
@@ -43,50 +57,87 @@ public class FOWLogicScript : MonoBehaviour
         }
     }
 
+    private void FixedUpdate()
+    {
+        updateLOSMap();
+    }
+
     public void updateLOSMap()
     {
         List<FOWTile> players = new List<FOWTile>();
         foreach (FOWTile tile in tiles)
         {
-            if (tile.setting == 0)
+            if (tile.setting == (int)TileSetting.white)
             {
                 tile.gameObject.GetComponent<MeshRenderer>().material = black;
-                tile.setting = 3;
+                tile.setting = (int)TileSetting.black;
             }
-            if (tile.setting == 1)
+            if (tile.setting == (int)TileSetting.green)
             {
                 players.Add(tile);
             }
+            if(tile.setting == (int)TileSetting.blue)
+            {
+                tile.gameObject.GetComponent<MeshRenderer>().material = blue;
+            }
         }
-        print("Players: " + players.Count);
+        //print("Players: " + players.Count);
         foreach (FOWTile tile in players)
         {
-            //int index = tiles.IndexOf(tile);
-            //int curIndex = index;
+            if (raycastMe)
+            {
+                raycast(tile.gameObject);
+            }
+            else if (DDA)
+            {
+                DDAAlgorithm(tile);
+            }
+            else if (DDAMine)
+            {
+                DDAAlgorithmMine(tile);
+            }
 
-            //bresenhamLines(tile);
-            
-            raycast(tile.gameObject);
+            getEdgeIndexesCircle(tile.myIndex);
+
+            //int index = tile.myIndex;
+            //int curIndex = index;
             //spiralIterate2(index);
             //lines(index)
         }
     }
 
+    //help methods that set a tile white
     void setWhite(FOWTile tile)
     {
-        tile.GetComponent<MeshRenderer>().material = white;
-        tile.setting = 0;
+        if (tile.setting == 2)
+        {
+            tile.GetComponent<MeshRenderer>().material = red;
+        }
+        else
+        {
+            tile.GetComponent<MeshRenderer>().material = white;
+            tile.setting = 0;
+        }
     }
 
     void setWhite(int index)
     {
-        if(index < tiles.Count - 1)
+        if(index >= 0 && index < tiles.Count - 1)
         {
-            tiles[index].GetComponent<MeshRenderer>().material = white;
-            tiles[index].setting = 0;
+            FOWTile myTile = tiles[index];
+            if(myTile.setting == 2)
+            {
+                myTile.GetComponent<MeshRenderer>().material = red;
+            }
+            else
+            {
+                myTile.GetComponent<MeshRenderer>().material = white;
+                myTile.setting = 0;
+            }
         }
     }
 
+    #region Raycasting
     void raycast(GameObject startTile){
         int rays = 360/raydivisor; //ex. raydiv 12 => 30 lines in a circle
         float dTheta = raydivisor; //degrees between lines
@@ -151,18 +202,316 @@ public class FOWLogicScript : MonoBehaviour
             }
         }
     }
+    #endregion
 
-    void bresenhamLines(FOWTile startTile)
+    void DDAAlgorithm(FOWTile startTile)
     {
         //note: square viewarea
-        //1. get edge tiles/indexes and start index (gotta know start and stop for bresenham)
-        //2. brasenham line between start and edge pieces, stop if wall
+        //1. get edge tiles/indexes and start index (gotta know start and stop)
+        //2. Find line between start and edge pieces with DDA, stop if wall
 
-        print(">>>Starting Bresenham!");
-        int startIndex = tiles.IndexOf(startTile);
+        //print(">>>Starting Line Algorithm!");
+        int startIndex = startTile.myIndex;
+        List<int> edgeIndexes = getEdgeIndexesCircle(startIndex);
+
+        //make lines!
+        //given x = start index column
+        int x0 = makeX(startIndex);
+        int y0 = makeY(startIndex);
+
+        //for all the edge tiles, threaded/multicore
+        Parallel.ForEach(edgeIndexes, edgeIndex =>
+        {
+           int x1 = makeX(edgeIndex); //convert index to x-y coords
+            int y1 = makeY(edgeIndex);
+
+           float dx = x1 - x0;
+           float dy = y1 - y0;
+
+           float x = x0;
+           float y = y0;
+
+           float a = 0; //slope
+            if (dx != 0)
+           {
+               a = dy / dx;
+           }
+           a = Mathf.Abs(a);
+
+            //iterate
+            if (dx == 0) //straight up or down
+            {
+               while (y != y1)
+               {
+                   if (dy > 0)
+                   {
+                       y++;
+                   }
+                   else
+                   {
+                       y--;
+                   }
+                   int ix = Mathf.RoundToInt(x);
+                   int iy = Mathf.RoundToInt(y);
+                   int newIndex = makeIndex(ix, iy);
+                   if (!coordCheckTile(newIndex))
+                   {
+                       setWhite(newIndex);
+                       break;
+                   }
+                   setWhite(newIndex);
+               }
+           }
+           else
+           {
+               if (Mathf.Abs(a) > 1) //steep slope
+                {
+                   float rev = 1 / a;
+                   while (y != y1)
+                   {
+                       if (dy > 0)
+                       {
+                           y++;
+                       }
+                       else
+                       {
+                           y--;
+                       }
+                       if (dx > 0)
+                       {
+                           x += rev;
+                       }
+                       else
+                       {
+                           x -= rev;
+                       }
+                       int ix = Mathf.RoundToInt(x);
+                       int iy = Mathf.RoundToInt(y);
+                       int newIndex = makeIndex(ix, iy);
+                       if (!coordCheckTile(newIndex))
+                       {
+                           setWhite(newIndex);
+                           break;
+                       }
+                       setWhite(newIndex);
+                   }
+               }
+               else //a<1, slow slope
+                {
+                   while (x != x1)
+                   {
+                       if (dx > 0)
+                       {
+                           x++;
+                       }
+                       else
+                       {
+                           x--;
+                       }
+                       if (dy > 0)
+                       {
+                           y += a;
+                       }
+                       else
+                       {
+                           y -= a;
+                       }
+                       int ix = Mathf.RoundToInt(x);
+                       int iy = Mathf.RoundToInt(y);
+                       int newIndex = makeIndex(ix, iy);
+                       if (!coordCheckTile(newIndex))
+                       {
+                           setWhite(newIndex);
+                           break;
+                       }
+                       setWhite(newIndex);
+                   }
+               }
+           }
+        });
+    }
+    
+    //Help method for DDAAlgorithm
+    bool coordCheckTile(int index)
+    {
+        if (tiles[index].setting == 2) //its wall
+        {
+            return false;
+        }
+        return true;
+    }
+
+    //Mine version, customizable length on see into walls
+    void DDAAlgorithmMine(FOWTile startTile)
+    {
+        //note: square viewarea
+        //1. get edge tiles/indexes and start index (gotta know start and stop)
+        //2. Find line between start and edge pieces, stop if wall with DDA
+
+        int startIndex = startTile.myIndex;
+        List<int> edgeIndexes = getEdgeIndexesSquare(startIndex);
+
+        //make lines!
+        //given x = start index column
+        int x0 = makeX(startIndex);
+        int y0 = makeY(startIndex);
+
+        //for all the edge tiles
+        Parallel.ForEach(edgeIndexes, edgeIndex =>
+        {
+            int x1 = makeX(edgeIndex); //convert index to x-y coords
+            int y1 = makeY(edgeIndex);
+
+            float dx = x1 - x0;
+            float dy = y1 - y0;
+
+            float x = x0;
+            float y = y0;
+
+            float a = 0; //slope
+            if (dx != 0)
+            {
+                a = dy / dx;
+            }
+            a = Mathf.Abs(a);
+
+            //mine
+            int seenThroughCount = 0;
+
+            //iterate
+            if (dx == 0) //straight up or down
+            {
+                while (y != y1)
+                {
+                    if (dy > 0)
+                    {
+                        y++;
+                    }
+                    else
+                    {
+                        y--;
+                    }
+                    int ix = Mathf.RoundToInt(x);
+                    int iy = Mathf.RoundToInt(y);
+                    int newIndex = makeIndex(ix, iy);
+
+                    int check = coordCheckTileMine(newIndex, seenThroughCount);
+                    if (check < 0)
+                    {
+                        //setWhite(newIndex); //Practically you'd want this for bitmap?
+                        break;
+                    }
+                    else if (check == 0)
+                    {
+                        seenThroughCount++;
+                    }
+                    setWhite(newIndex);
+                }
+            }
+            else
+            {
+                if (Mathf.Abs(a) > 1) //steep slope
+                {
+                    float rev = 1 / a;
+                    while (y != y1)
+                    {
+                        if (dy > 0)
+                        {
+                            y++;
+                        }
+                        else
+                        {
+                            y--;
+                        }
+                        if (dx > 0)
+                        {
+                            x += rev;
+                        }
+                        else
+                        {
+                            x -= rev;
+                        }
+                        int ix = Mathf.RoundToInt(x);
+                        int iy = Mathf.RoundToInt(y);
+                        int newIndex = makeIndex(ix, iy);
+
+                        int check = coordCheckTileMine(newIndex, seenThroughCount);
+                        if (check < 0)
+                        {
+                            //setWhite(newIndex); //Practically you'd want this for bitmap?
+                            break;
+                        }
+                        else if (check == 0)
+                        {
+                            seenThroughCount++;
+                        }
+                        setWhite(newIndex);
+                    }
+                }
+                else //a<1, slow slope
+                {
+                    while (x != x1)
+                    {
+                        if (dx > 0)
+                        {
+                            x++;
+                        }
+                        else
+                        {
+                            x--;
+                        }
+                        if (dy > 0)
+                        {
+                            y += a;
+                        }
+                        else
+                        {
+                            y -= a;
+                        }
+                        int ix = Mathf.RoundToInt(x);
+                        int iy = Mathf.RoundToInt(y);
+                        int newIndex = makeIndex(ix, iy);
+
+                        int check = coordCheckTileMine(newIndex, seenThroughCount);
+                        if (check < 0)
+                        {
+                            //setWhite(newIndex); //Practically you'd want this for bitmap?
+                            break;
+                        }
+                        else if (check == 0)
+                        {
+                            seenThroughCount++;
+                        }
+                        setWhite(newIndex);
+                    }
+                }
+            }
+        });
+    }
+
+    //Help method for DDAAlgorithmMine
+    int coordCheckTileMine(int index, int seenThrough)
+    {
+        if (tiles[index].setting == (int)TileSetting.blue && seenThrough < maxSeeThrough) //its wall
+        {
+            return 0;
+        }
+        else if(tiles[index].setting == (int)TileSetting.blue)
+        {
+            return -1;
+        }
+        else if(tiles[index].setting == (int)TileSetting.black && seenThrough > 0)
+        {
+            return -1;
+        }
+
+        return 1;
+    }
+
+    List<int> getEdgeIndexesSquare(int startIndex)
+    {
         List<int> edgeIndexes = new List<int>();
 
-        #region find edge pieces
         //Find edge pieces
         //top row
         int offset = -playerViewDist;
@@ -196,89 +545,76 @@ public class FOWLogicScript : MonoBehaviour
             edgeIndexes.Add(index);
             offset += length;
         }
-        #endregion
 
-        //make lines!
-        //given x = start index column
+        return edgeIndexes;
+    }
+
+    List<int> getEdgeIndexesCircle(int startIndex)
+    {
+        //get the edge indexes of square
+        List<int> edgeIndexes = getEdgeIndexesSquare(startIndex);
+
         int x0 = makeX(startIndex);
         int y0 = makeY(startIndex);
-        print("StartIndex: " + startIndex + " -> x/y:" + x0 + "/" + y0);
 
+        //check if inside our view radius
         foreach (int edgeIndex in edgeIndexes)
         {
-            setWhite(tiles[edgeIndex]);
             int x1 = makeX(edgeIndex);
             int y1 = makeY(edgeIndex);
 
-            print(">>Next EdgeIndex: " + edgeIndex + " -> x/y:" + x1 + "/" + y1);
+            int dx = x1 - x0;
+            int dy = y1 - y0;
 
-            //Note: Looked up something called DDA, but didnt end up using.
-
-            //pretty much DDA
-            float dx = x1 - x0;
-            float dy = y1 - y0;
-
-            float x = x0;
-            float y = y0;
-
-            float a = 0;
-            if(dx != 0)
+            int nx = x1;
+            int ny = y1;
+            while (!checkInsideCircleView(dx, dy))
             {
-                a = dy / dx;
-            }
-
-            print("a: " + a + ", dx/dy: " + dx + "/" + dy);
-
-            //iterate
-            if(dx == 0)
-            {
-                while(y != y1)
-                {
-                    if(dy > 0)
-                    {
-                        y++;
-                    }
-                    else
-                    {
-                        y--;
-                    }
-                    int ix = Mathf.RoundToInt(x);
-                    int iy = Mathf.RoundToInt(y);
-                    int newIndex = makeIndex(ix, iy);
-                    print("Set index: " + newIndex + ", x/y: " + x + "/" + y + ", ix/iy: " + ix + "/" + iy);
-                    setWhite(newIndex);
-                }
-            }
-            else
-            {
-                while(x != x1)
+                if(Mathf.Abs(dx) >= Mathf.Abs(dy)) //increment the one that's largest
                 {
                     if(dx > 0)
                     {
-                        x++;
+                        nx--;
                     }
                     else
                     {
-                        x--;
+                        nx++;
                     }
+                }
+                else
+                {
                     if(dy > 0)
                     {
-                        y += a;
+                        ny--;
                     }
                     else
                     {
-                        y -= a;
+                        ny++;
                     }
-                    int ix = Mathf.RoundToInt(x);
-                    int iy = Mathf.RoundToInt(y);
-                    int newIndex = makeIndex(ix, iy);
-                    print("Set index: " + newIndex + ", x/y: " + x + "/" + y + ", ix/iy: " + ix + "/" + iy);
-                    setWhite(newIndex);
                 }
+                dx = nx - x0;
+                dy = ny - y0;
             }
+            int index = makeIndex(nx, ny);
+            setWhite(index);
         }
+
+        return edgeIndexes;
     }
 
+    bool checkInsideCircleView(int dx, int dy)
+    {
+        float sqdist = Mathf.Pow(dx, 2) + Mathf.Pow(dy, 2);
+        //print("Checking " + edgeIndex + ": " + sqdist);
+        if (sqdist <= Mathf.Pow(playerViewDist, 2))
+        {
+            //print("Edge: " + edgeIndex + " is inside circle!");
+            return true;
+        }
+        return false;
+    }
+
+    //covert to x-y coordinates
     int makeY(int index)
     {
         return index / length;
