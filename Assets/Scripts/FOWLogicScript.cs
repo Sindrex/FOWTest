@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UI;
 
 public enum TileSetting
 {
@@ -12,6 +13,13 @@ public enum TileSetting
     red = 4
 }
 
+/* Note about Dwarfheim:
+ * 3x 1D arrays for the Grid:
+ * * Terrain
+ * * Resources (stone/ore in underworld, trees in overworld)
+ * * WorldObject (buildings)
+ */
+
 public class FOWLogicScript : MonoBehaviour
 {
     public Material green;
@@ -20,23 +28,27 @@ public class FOWLogicScript : MonoBehaviour
     public Material white;
     public Material black;
 
+    public InputField viewDistInput;
+
     public GameObject tilePrefab;
     public int length;
+    private int lengthSq;
     public int playerViewDist;
     public List<FOWTile> tiles;
 
-    public bool raycastMe;
-    public int raydivisor = 12;
+    public bool raycastMe; //Deprecated
+    public int raydivisor = 12; //Deprecated
 
     public bool DDA;
     public bool DDAMine;
     public int maxSeeThrough;
-    public float circleTol = 0.25f;
-
 
     // Start is called before the first frame update
     void Start()
     {
+        lengthSq = length * length;
+        viewDistInput.text = playerViewDist + "";
+
         tiles = new List<FOWTile>();
         int index = 0;
         Vector3 vec = new Vector3(0, 0, 0);
@@ -58,13 +70,15 @@ public class FOWLogicScript : MonoBehaviour
         }
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
-        //updateLOSMap();
+        updateLOSMap();
     }
 
     public void updateLOSMap()
     {
+        int.TryParse(viewDistInput.text, out playerViewDist);
+
         List<FOWTile> players = new List<FOWTile>();
         foreach (FOWTile tile in tiles)
         {
@@ -99,44 +113,39 @@ public class FOWLogicScript : MonoBehaviour
             }
             else
             {
-                getEdgeIndexesCircle(tile.myIndex);
+                //getEdgeIndexesCircle(tile.myIndex, playerViewDist, null);
             }
-
-            //int index = tile.myIndex;
-            //int curIndex = index;
-            //spiralIterate2(index);
-            //lines(index)
         }
     }
 
     //help methods that set a tile white
-    void setWhite(FOWTile tile)
+    void setWhite(FOWTile myTile)
     {
-        if (tile.setting == 2)
+        if (myTile.setting == (int)TileSetting.blue)
         {
-            tile.GetComponent<MeshRenderer>().material = red;
+            myTile.GetComponent<MeshRenderer>().material = red;
         }
-        else
+        else if (myTile.setting != (int)TileSetting.green) //dont take away greenies
         {
-            tile.GetComponent<MeshRenderer>().material = white;
-            tile.setting = 0;
+            myTile.GetComponent<MeshRenderer>().material = white;
+            myTile.setting = 0;
         }
     }
 
     void setWhite(int index)
     {
-        if(index >= 0 && index < tiles.Count - 1)
+        if(index >= 0 && index < lengthSq)
         {
             FOWTile myTile = tiles[index];
-            if(myTile.setting == 2)
+            if(myTile.setting == (int)TileSetting.blue)
             {
                 myTile.GetComponent<MeshRenderer>().material = red;
             }
-            else
+            else if(myTile.setting != (int)TileSetting.green) //dont take away greenies
             {
                 myTile.GetComponent<MeshRenderer>().material = white;
                 myTile.setting = 0;
-            }
+            } 
         }
     }
 
@@ -207,6 +216,7 @@ public class FOWLogicScript : MonoBehaviour
     }
     #endregion
 
+    #region DDA
     void DDAAlgorithm(FOWTile startTile)
     {
         //note: square viewarea
@@ -215,7 +225,7 @@ public class FOWLogicScript : MonoBehaviour
 
         //print(">>>Starting Line Algorithm!");
         int startIndex = startTile.myIndex;
-        List<int> edgeIndexes = getEdgeIndexesCircle(startIndex);
+        List<int> edgeIndexes = getEdgeIndexesCircle(startIndex, playerViewDist);
 
         //make lines!
         //given x = start index column
@@ -225,21 +235,21 @@ public class FOWLogicScript : MonoBehaviour
         //for all the edge tiles, threaded/multicore
         foreach(int edgeIndex in edgeIndexes)
         {
-           int x1 = makeX(edgeIndex); //convert index to x-y coords
+            int x1 = makeX(edgeIndex); //convert index to x-y coords
             int y1 = makeY(edgeIndex);
 
-           float dx = x1 - x0;
-           float dy = y1 - y0;
+            float dx = x1 - x0;
+            float dy = y1 - y0;
 
-           float x = x0;
-           float y = y0;
+            float x = x0;
+            float y = y0;
 
-           float a = 0; //slope
+            float a = 0; //slope
             if (dx != 0)
-           {
-               a = dy / dx;
-           }
-           a = Mathf.Abs(a);
+            {
+                a = dy / dx;
+            }
+            a = Mathf.Abs(a);
 
             //iterate
             if (dx == 0) //straight up or down
@@ -257,17 +267,17 @@ public class FOWLogicScript : MonoBehaviour
                    int ix = Mathf.RoundToInt(x);
                    int iy = Mathf.RoundToInt(y);
                    int newIndex = makeIndex(ix, iy);
-                   if (!coordCheckTile(newIndex))
+                   if (!checkWall(newIndex))
                    {
                        setWhite(newIndex);
                        break;
                    }
                    setWhite(newIndex);
                }
-           }
-           else
-           {
-               if (Mathf.Abs(a) > 1) //steep slope
+            }
+            else
+            {
+                if (Mathf.Abs(a) > 1) //steep slope
                 {
                    float rev = 1 / a;
                    while (y != y1)
@@ -291,7 +301,7 @@ public class FOWLogicScript : MonoBehaviour
                        int ix = Mathf.RoundToInt(x);
                        int iy = Mathf.RoundToInt(y);
                        int newIndex = makeIndex(ix, iy);
-                       if (!coordCheckTile(newIndex))
+                       if (!checkWall(newIndex))
                        {
                            setWhite(newIndex);
                            break;
@@ -322,7 +332,7 @@ public class FOWLogicScript : MonoBehaviour
                        int ix = Mathf.RoundToInt(x);
                        int iy = Mathf.RoundToInt(y);
                        int newIndex = makeIndex(ix, iy);
-                       if (!coordCheckTile(newIndex))
+                       if (!checkWall(newIndex))
                        {
                            setWhite(newIndex);
                            break;
@@ -335,13 +345,17 @@ public class FOWLogicScript : MonoBehaviour
     }
     
     //Help method for DDAAlgorithm
-    bool coordCheckTile(int index)
+    bool checkWall(int index)
     {
-        if (tiles[index].setting == 2) //its wall
+        if(index >= 0 && index < tiles.Count)
         {
-            return false;
+            if (tiles[index].setting == 2) //its wall
+            {
+                return false;
+            }
+            return true;
         }
-        return true;
+        return false;
     }
 
     //Mine version, customizable length on see into walls
@@ -352,7 +366,7 @@ public class FOWLogicScript : MonoBehaviour
         //2. Find line between start and edge pieces, stop if wall with DDA
 
         int startIndex = startTile.myIndex;
-        List<int> edgeIndexes = getEdgeIndexesSquare(startIndex);
+        List<int> edgeIndexes = getEdgeIndexesCircle(startIndex, playerViewDist);
 
         //make lines!
         //given x = start index column
@@ -519,51 +533,121 @@ public class FOWLogicScript : MonoBehaviour
         return 1;
     }
 
-    List<int> getEdgeIndexesSquare(int startIndex)
+    List<int> getEdgeIndexesSquare(int startIndex, int viewDist)
     {
         List<int> edgeIndexes = new List<int>();
 
-        //Find edge pieces
-        //top row
-        int offset = -playerViewDist;
-        for (int i = 0; i < playerViewDist * 2 + 1; i++)
+        //Find edge pieces in a square fashion
+        int x0 = makeX(startIndex);
+        int y0 = makeY(startIndex);
+
+        //top
+        int x = x0 - viewDist;
+        int y = y0 - viewDist;
+        int dx = x - x0;
+        int dy = y - y0;
+        for (int i = 0; i < viewDist * 2 + 1; i++)
         {
-            int index = startIndex - playerViewDist * length + offset;
-            edgeIndexes.Add(index);
-            offset++;
-        }
-        //bottom row
-        offset = -playerViewDist;
-        for (int i = 0; i < playerViewDist * 2 + 1; i++)
-        {
-            int index = startIndex + playerViewDist * length + offset;
-            edgeIndexes.Add(index);
-            offset++;
-        }
-        //left row
-        offset = -(playerViewDist - 1) * length;
-        for (int i = 0; i < playerViewDist * 2 - 1; i++)
-        {
-            int index = startIndex - playerViewDist + offset;
-            edgeIndexes.Add(index);
-            offset += length;
-        }
-        //right row
-        offset = -(playerViewDist - 1) * length;
-        for (int i = 0; i < playerViewDist * 2 - 1; i++)
-        {
-            int index = startIndex + playerViewDist + offset;
-            edgeIndexes.Add(index);
-            offset += length;
+            int index = makeIndex(x, y);
+            int nx = x;
+            int ny = y;
+            while(ny < 0 || nx >= length) //outside grid
+            {
+                (nx, ny) = DecrementXY(dx, dy, nx, ny);
+                dx = nx - x0;
+                dy = ny - y0;
+                index = makeIndex(nx, ny);
+            }
+            addToEdgeList(edgeIndexes, nx, ny);
+            x++; //doesnt skip corner piece
         }
 
+        //bottom
+        x = x0 - viewDist;
+        y = y0 + viewDist;
+        for (int i = 0; i < viewDist * 2 + 1; i++)
+        {
+            int index = makeIndex(x, y);
+            int nx = x;
+            int ny = y;
+            while (nx < 0 || ny >= length) //outside grid
+            {
+                (nx, ny) = DecrementXY(dx, dy, nx, ny);
+                dx = nx - x0;
+                dy = ny - y0;
+                index = makeIndex(nx, ny);
+            }
+            addToEdgeList(edgeIndexes, nx, ny);
+            x++; //no skip
+        }
+
+        //Left
+        x = x0 - viewDist;
+        y = y0 - viewDist;
+        for (int i = 0; i < viewDist * 2 - 1; i++) //skips last corner piece
+        {
+            y++; //note: always skips the corner piece
+            int index = makeIndex(x, y);
+            int nx = x;
+            int ny = y;
+            while (nx < 0) //inside grid
+            {
+                (nx, ny) = DecrementXY(dx, dy, nx, ny);
+                dx = nx - x0;
+                dy = ny - y0;
+            }
+            addToEdgeList(edgeIndexes, nx, ny);
+        }
+
+        //Right
+        x = x0 + viewDist;
+        y = y0 - viewDist;
+        for (int i = 0; i < viewDist * 2 - 1; i++)
+        {
+            y++;
+            int index = makeIndex(x, y);
+            int nx = x;
+            int ny = y;
+            //print("Right tile x/y: " + x + "/" + y + ", index: " + index);
+            while (nx >= length) //inside grid
+            {
+                (nx, ny) = DecrementXY(dx, dy, nx, ny);
+                dx = nx - x0;
+                dy = ny - y0;
+            }
+            addToEdgeList(edgeIndexes, nx, ny);
+        }
         return edgeIndexes;
     }
 
-    List<int> getEdgeIndexesCircle(int startIndex)
+    bool addToEdgeList(List<int> list, int index)
+    {
+        if (!list.Contains(index) && index >= 0 && index < lengthSq)
+        {
+            list.Add(index);
+            return true;
+        }
+        return false;
+    }
+
+    bool addToEdgeList(List<int> list, int x, int y)
+    {
+        if ((x >= 0 && x < length) && (y >= 0 && y < length)) //inside grid
+        {
+            int index = makeIndex(x, y);
+            if (!list.Contains(index))
+            {
+                list.Add(index);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    List<int> getEdgeIndexesCircle(int startIndex, int viewDist)
     {
         //get the edge indexes of square
-        List<int> edgeIndexes = getEdgeIndexesSquare(startIndex);
+        List<int> edgeIndexes = getEdgeIndexesSquare(startIndex, viewDist);
         List<int> newEdgeIndexes = new List<int>();
 
         int x0 = makeX(startIndex);
@@ -580,7 +664,7 @@ public class FOWLogicScript : MonoBehaviour
 
             int nx = x1;
             int ny = y1;
-            while (!checkInsideCircleView(dx, dy))
+            while (!checkInsideCircleView(dx, dy, viewDist))
             {
                 if(Mathf.Abs(dx) >= Mathf.Abs(dy)) //increment the one that's largest
                 {
@@ -607,27 +691,87 @@ public class FOWLogicScript : MonoBehaviour
                 dx = nx - x0;
                 dy = ny - y0;
             }
-            int index = makeIndex(nx, ny);
-            newEdgeIndexes.Add(index);
+
+            if (addToEdgeList(newEdgeIndexes, nx, ny))
+            {
+                //print("Inside radius index: " + index);
+            }
+
+            //Add inner edge of this edge
+            if (Mathf.Abs(dx) >= Mathf.Abs(dy)) //increment the one that's largest
+            {
+                if (dx > 0)
+                {
+                    nx--;
+                }
+                else
+                {
+                    nx++;
+                }
+            }
+            else
+            {
+                if (dy > 0)
+                {
+                    ny--;
+                }
+                else
+                {
+                    ny++;
+                }
+            }
+
+            if (addToEdgeList(newEdgeIndexes, nx, ny))
+            {
+                //print("InnerEdge index: " + index + ", x0/y0: " + x0 + "/" + y0 + ", dx/dy: " + nx + "/" + ny);
+            }
         }
 
         return newEdgeIndexes;
     }
 
-    bool checkInsideCircleView(int dx, int dy)
+    bool checkInsideCircleView(int dx, int dy, int viewDist)
     {
-        float tol = (playerViewDist - 3)*0.25f;
+        float tol = 0.25f; //(playerViewDist - 3)*0.25f;
 
         float sqdist = Mathf.Pow(dx, 2) + Mathf.Pow(dy, 2);
-        print(">>>Checking " + dx + "/" + dy + ": " + sqdist);
-        float maxDist = Mathf.Pow(playerViewDist + tol, 2);
+        //print(">>>Checking " + dx + "/" + dy + ": " + sqdist);
+        float maxDist = Mathf.Pow(viewDist + tol, 2);
         if (sqdist <= maxDist)
         {
-            print("Edge: " + dx + "/" + dy + " (" + sqdist + ")" + " is inside rad " + maxDist + " circle!");
+            //print("Edge: " + dx + "/" + dy + " (" + sqdist + ")" + " is inside rad " + maxDist + " circle!");
             return true;
         }
         return false;
     }
+    
+    (int nx, int ny) DecrementXY(int dx, int dy, int x, int y)
+    {
+        if (Mathf.Abs(dx) >= Mathf.Abs(dy)) // dec/inc-rement the one that's largest
+        {
+            if (dx > 0)
+            {
+                x--;
+            }
+            else
+            {
+                x++;
+            }
+        }
+        else
+        {
+            if (dy > 0)
+            {
+                y--;
+            }
+            else
+            {
+                y++;
+            }
+        }
+        return (x, y);
+    }
+    #endregion
 
     //covert to x-y coordinates
     int makeY(int index)
@@ -645,6 +789,7 @@ public class FOWLogicScript : MonoBehaviour
         return y * length + x;
     }
 
+    #region incomplete solutions
     void lines(int index)
     {
         int curIndex = index;
@@ -1046,4 +1191,5 @@ public class FOWLogicScript : MonoBehaviour
             setWhite(tiles[curIndex]);
         }
     }
+    #endregion
 }

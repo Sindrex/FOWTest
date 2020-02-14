@@ -12,7 +12,7 @@ public class FOWTile : MonoBehaviour
 
     private void OnMouseOver()
     {
-        if(Input.GetKey(KeyCode.Mouse0) || Input.GetKey(KeyCode.Mouse1) || Input.GetKey(KeyCode.R))
+        if(Input.GetKeyDown(KeyCode.Mouse0) || Input.GetKey(KeyCode.Mouse1) || Input.GetKey(KeyCode.R))
         {
             if (Input.GetKey(KeyCode.Mouse0))
             {
