@@ -674,16 +674,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 60b1c09b45b721d4c8d729dabd5f370a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  green: {fileID: 2100000, guid: 088b04e904f13754cbcf9a423ad7b2bf, type: 2}
-  red: {fileID: 2100000, guid: af0fababdb2abba4d889579e150c2038, type: 2}
-  blue: {fileID: 2100000, guid: 8b10117929d9d294a9644672d3f29cfc, type: 2}
-  white: {fileID: 2100000, guid: 2d3cc84eedc3f0146a184cdf421f9c8e, type: 2}
-  black: {fileID: 2100000, guid: 9d0d1546356d9c94a95a782c27237f00, type: 2}
+  colorsResource:
+  - {fileID: 2100000, guid: 9d0d1546356d9c94a95a782c27237f00, type: 2}
+  - {fileID: 2100000, guid: 088b04e904f13754cbcf9a423ad7b2bf, type: 2}
+  - {fileID: 2100000, guid: 8b10117929d9d294a9644672d3f29cfc, type: 2}
+  - {fileID: 2100000, guid: af0fababdb2abba4d889579e150c2038, type: 2}
+  colorsView:
+  - {fileID: 2100000, guid: 9d0d1546356d9c94a95a782c27237f00, type: 2}
+  - {fileID: 2100000, guid: 2d3cc84eedc3f0146a184cdf421f9c8e, type: 2}
   viewDistInput: {fileID: 1868551418}
   tilePrefab: {fileID: 201168816092224731, guid: 227c4875fecd9fb4a8e2edcb3dd7e61a,
     type: 3}
   length: 30
-  playerViewDist: 5
+  playerViewDist: 7
   tiles:
   - {fileID: 0}
   - {fileID: 0}
@@ -749,12 +752,10 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
-  raycastMe: 0
   raydivisor: 12
-  DDA: 0
-  DDAMine: 1
+  DDA: 1
   maxSeeThrough: 2
-  myEdges: 
+  resourceMap: 
 --- !u!1 &1164653930
 GameObject:
   m_ObjectHideFlags: 0
@@ -979,7 +980,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
-    m_Mode: 3
+    m_Mode: 0
     m_SelectOnUp: {fileID: 0}
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
@@ -1008,13 +1009,13 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1868551419}
   m_TextComponent: {fileID: 1239929663}
   m_Placeholder: {fileID: 541792749}
-  m_ContentType: 0
+  m_ContentType: 2
   m_InputType: 0
   m_AsteriskChar: 42
-  m_KeyboardType: 0
+  m_KeyboardType: 4
   m_LineType: 0
   m_HideMobileInput: 0
-  m_CharacterValidation: 0
+  m_CharacterValidation: 1
   m_CharacterLimit: 0
   m_OnEndEdit:
     m_PersistentCalls:
